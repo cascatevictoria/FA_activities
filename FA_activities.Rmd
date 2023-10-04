@@ -1,0 +1,345 @@
+---
+title: "Factor Analysis: What influences love at first sight"
+author: "Victoria Bolotova"
+date: "25 05 2022"
+output: 
+    html_document:
+      theme: cosmo
+      code_folding: show
+      toc: true
+      toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Data Preprocessing
+
+## Reading the data
+
+```{r}
+library(dplyr)
+dating <- read.csv("Speed Dating Data.csv")
+names(dating)
+```
+
+## Description of manifest variables
+
+* **imprace**: How important is it to you (on a scale of 1-10) that a person you date be of the same racial/ethnic background?
+
+* **imprelig**:  How important is it to you (on a scale of 1-10) that a person you date be of the same religious background?
+
+* **date**: In general, how frequently do you go on dates? 
+Several times a week=1
+Twice a week=2
+Once a week=3
+Twice a month=4
+Once a month=5
+Several times a year=6
+Almost never=7
+
+* **go out**: How often do you go out (not necessarily on dates)?
+Several times a week=1
+Twice a week=2
+Once a week=3
+Twice a month=4
+Once a month=5
+Several times a year=6
+Almost never=7
+
+- How interested are you in the following activities, on a scale of 1-10?
+  - **sports**: Playing sports/ athletics (on a scale of 1-10)
+  - **tvsports**: Watching sports (on a scale of 1-10)
+  - **exercise**: Body building/exercising (on a scale of 1-10)
+  - **dining**: Dining out (on a scale of 1-10)
+  - **museums**: Museums/galleries
+  - **art**: Art
+  - **hiking**: Hiking/camping
+  - **gaming**: Gaming
+  - **clubbing**: Dancing/clubbing
+  - **reading**
+  - **tv**
+  - **theater**
+  - **movies**
+  - **concerts**: Going to concerts
+  - **music**
+  - **shopping**
+  - **yoga**
+  
+* **exphappy**: Overall, on a scale of 1-10, how happy do you expect to be with the people you meet during the speed-dating event?
+
+- We want to know **what you look for in the opposite sex**. You have 100 points to distribute among the following attributes -- give more points to those attributes that are more important in a potential date, and fewer points to those attributes that are less important in a potential date.  Total points must equal 100.
+  - **attr1_1**: Attractive
+  - **sinc1_1**: Sincere
+  - **intel1_1**: Intelligent
+  - **fun1_1**: Fun
+  - **amb1_1**: Ambitious
+  - **shar1_1**: Has shared interests/hobbies
+
+- What do you think **the opposite sex looks for in a date**? Total points must equal 100.
+  - **attr2_1** 
+  - **sinc2_1**
+  - **intel2_1**
+  - **fun2_1**
+  - **amb2_1**
+  - **shar2_1**
+
+- How do you think you measure up?
+Please rate your opinion of your own attributes, on a scale of 1-10 (be honest!):
+  - **attr3_1**
+  - **sinc3_1**
+  - **intel3_1**
+  - **fun3_1**
+  - **amb3_1**
+  
+## Selecting manifest variables
+
+```{r}
+dating1 <- dating[c("imprace","imprelig", "date", "go_out", "sports", 
+                   "tvsports", "exercise",  "dining" , "museums",  "art",  
+                   "hiking", "gaming",  "clubbing",  
+                   "reading", "tv",  "theater", "movies",  "concerts",   
+                   "music",   "shopping",   "yoga", "exphappy" , "attr1_1",
+                   "sinc1_1",   "intel1_1", "fun1_1",   "amb1_1",   
+                   "shar1_1", "attr2_1", "sinc2_1",   "intel2_1",   
+                   "fun2_1",   "amb2_1",   "shar2_1",   "attr3_1",   "sinc3_1",
+                   "intel3_1",   "fun3_1",   "amb3_1")]
+dating1 <- as.data.frame(dating1)
+```
+
+```{r}
+dim(dating1)  
+```
+
+
+There are 39 variables and 8328 observations in the data. 
+      
+
+# Preparatory steps for Factor analysis 
+
+Our RQ: **Are there latent factors which explain correlations of the observed variables?**
+
+## Check the type of variables
+
+```{r}
+sapply(dating1, class) 
+```
+
+* Most variables of integer type because they are of ordinal type of measurement. They were measured like *How important is it to you (on a scale of 1-10)...* and *How often do you ... Several times a week=1 Twice a week=2 Once a week=3 Twice a month=4 Once a month=5 Several times a year=6 Almost never=7*
+
+* But we can treat them as continuous variables, because they have more than 7 levels and are represented by numbers.
+
+```{r}
+dating1[, 1:39] <- lapply(dating1[, 1:39], as.numeric)
+```
+
+Let's check whether transformation is successful: 
+
+```{r}
+sapply(dating1, class) 
+```
+
+Now all variables are of numeric type.
+
+## Delete NA
+
+```{r}
+dating1 <- na.omit(dating1)
+nrow(dating1)
+```
+
+Now we have 8191 observations, so we have lost 187 observations. 
+
+## Correlations
+
+* I think it is better to use Spearman's rank correlation coefficient because it fits ordinal data. 
+
+```{r}
+#library(sjPlot)
+#tab_corr(dating1, corr.method = "spearman")
+```
+
+* I decided to not include the output in the html, because it is very big as we have 39 variables. 
+
+* From the table I can see that most variables have small correlations (~ 0.1) with each other and even many variables have insignificant or significant but very small correlations (e.g., -0.030)
+
+* The highest correlations (0.47) is between variables **sports** and **tvsports**, and also large correlation (0.47) is between **imprace** and **imprelig**, which is expected result.
+
+## Data adequacy and goodness of fit
+
+### KMO 
+
+* measures how much of the manifest variables' variance can be common variance explained by factors. 
+
+```{r}
+library(psych)
+KMO(dating1)
+```
+
+* KMO should be at least 0.5, but for our data it equals only to 0.35, which is bad.
+
+### Bartlett test of Sphericity
+
+* The null hypotheses is that the variance-covariance matrix is an identity matrix (variables are uncorrelated).
+
+```{r}
+r <- cor(dating1)
+cortest.bartlett(r)
+```
+
+P-value indicates significant result, which is good. 
+
+### Eigenvalues
+
+```{r}
+ev <- eigen(cor(dating1)) 
+ev$values #should be above 1
+```
+
+Unfortunately, not all variables' eigenvalues are above 1, which is sad, but let's continue.
+
+## Parallel Analysis screen plot
+
+* Helps determine the number of factors
+
+```{r}
+fa.parallel(dating1, n.obs = 8191, fa="fa", n.iter=100) 
+```
+
+* We should look where red dotted line is crossed with triangles' line. The number of factors should be determined by the number of triangles before this intersection. Let's count! 
+
+* There 14 triangles before the intersection and the 15th triangle is crossed by red dotted line. 
+
+* Also, in system message there is a hint for us: "Parallel analysis suggests that the number of factors =  15"
+
+* Thus, let's try to use 15 factors.
+
+# Factor analysis
+
+## 1) No rotation
+
+```{r}
+library(GPArotation)
+fa(dating1, nfactors = 15, rotate = "none", fm = "ml") 
+```
+
+* The number of factors as well as variables is too big, so it is hard to interpret the result of FA. Moreover, with such big number of factors and variables we cannot look at visualization of our FA. However, let's interpret the result.
+
+- Interpretation:
+  - Good Cumulative Var (~ 0.57.)
+  - RMSR is 0.03 (should be closer to 0), which is good
+  - RMSEA index is  acceptable (0.072) (<.08 acceptable, <.05 excellent)
+  - Tucker Lewis Index is too small (0.778), which indicates poor result (>.90 acceptable, >.95 excellent)
+  -> To sum up, this FA can be considered acceptable, but I can definitely improve the result.
+
+
+## 2) No rotation, reduced number of factors
+
+* Let's try 5 factors. Such number of factors is also should be tried because eigenvalues in Parallel Analysis screen plot indicate that exactly 5 factors should be used (because there are 5 triangles before black horizontal line). 
+
+```{r}
+fa(dating1, nfactors=5, rotate="none", fm="ml")
+```
+
+* Also hard to look at visualizations because there are too many manifest variables.
+
+- Interpretation:
+  - Low Cumulative Var (~ 0.29.)
+  - RMSR is 0.07(should be closer to 0) 
+  - RMSEA index is too high (0.133), which indicates poor result (<.08 acceptable, <.05 excellent)
+  - Tucker Lewis Index is too small (0.251), which also indicates poor result (>.90 acceptable, >.95 excellent)
+  -> To sum up, this FA is very poor.
+  
+
+* There are manifest variables that do not belong to any factors (e.g., imprace, its uniqueness equals to 0.9). Obviously, we should exclude such variables.
+
+## 3) Rotation varimax
+
+```{r}
+fa(dating1, nfactors=5, rotate="varimax", fm="ml") 
+```
+
+* The result is the same as for the previous FA. All important indicators (as RMSR, for example) do not differ between two FAs.
+
+
+## 4) Rotation oblimin
+
+```{r}
+fa(dating1, nfactors=5, rotate="oblimin", fm="ml") 
+```
+
+* The result is the same as for the previous FAs. All important indicators (as RMSR, for example) do not differ between previous FAs.
+
+
+## Which results of factor analysis are better: [1] or [2] or [3] or [4]?
+
+* Well, two types of rotation did not improve the result of FA. Thus, the result of 2nd, 3rd and 4th FAs are the same. In accordance with metrics (Tucker Lewis Index, RMSR, RMSEA index), the best FA among 4 FAs is the first one. 
+
+* However, as results show, some manifest variables should be excluded because they do not belong to any factor (whether there are 15 factors or only 5) according to uniqueness's values. 
+
+* I think that rotations did not help because there is a huge problem with extra manifest variables. We should exclude them, and only then try to use rotation. 
+
+# Improve the EFA 
+
+## Exclude variables 
+
+* Now I am going to exclude variables with low factor loading (smaller than 0.4) and high uniqueness (higher than 0.8), based on the result of FA with 5 factors (because 15 is too much and is hard to analyse).
+
+- We should exclude these variables:
+  - imprace (the highest factor loading is 0.24, uniqueness is 0.9)
+  - imprelig (the highest factor loading is 0.30, uniqueness is 0.9)
+  - date (the highest factor loading is -0.35, uniqueness is 0.8)
+  - go our (the highest factor loading is -0.31, uniqueness is 0.9)
+  - hiking (the highest factor loading is 0.21, uniqueness is 0.94)
+  - gaming (the highest factor loading is 0.21, uniqueness is 0.9)
+  - clubbing (the highest factor loading is 0.26, uniqueness is 0.9)
+  - exphappy (the highest factor loading is 0.27, uniqueness is 0.9)
+
+
+* Also, after several efforts, I understood that 3 sets of variables where the person evaluate how important is attractiveness, intellect, etc. do not form factors together and sometimes are added to factor that includes variables that can logically be interpreted, but these sets of variables do not fit well, so I am going to exclude them.
+
+```{r}
+reduced_dating <- dating1 %>% 
+  select(dining, sports, tvsports, exercise, museums, art, reading, tv, theater, movies,  concerts,  music, shopping)
+```
+
+* Our new data set is ready! Let's try to understand what number of factors we need with these 13 variables.
+
+## Parallel Analysis screen plot
+
+```{r}
+fa.parallel(reduced_dating, n.obs = 8191, fa="fa", n.iter=100) 
+```
+
+* It suggests us to use 5 factors, but it is better to uncover 4 factors with these manifest variables as I understood after running FA with 5 factors, because in this case the variable `tv` forms one factor, and this is strange. Thus, let's try to uncover 4 latent variables.
+
+```{r}
+fa(reduced_dating, nfactors=4, rotate="none", fm="ml")
+```
+
+- Interpretation:
+  - Good Cumulative Var (0.5). Higher than for previous FA.
+  - RMSR is 0.04 (should be closer to 0). Lower than for previous FA.
+  - RMSEA index is high (0.09), which indicates poor result (<.08 acceptable, <.05 excellent). But it is still lower than for previous FA.
+  - Tucker Lewis Index is too small (0.83), which is close to acceptable result (>.90 acceptable, >.95 excellent).
+  -> To sum up, this FA is not excellent, but close to acceptable. Thus, I improved result of FA. However, different types of rotations did not help to improve quality of the FA.
+  
+## Name and describe the factors
+
+```{r}
+fa.diagram(fa(reduced_dating, nfactors=4, rotate="oblimin", fm="ml"))
+```
+
+* As it turns out, there are logical and meaningful latent variables behind manifest variables.
+
+* **Elite culture** (educational leisure). First latent variable (ML1) consists of the following 5 variables: museums, art, theater, dining, reading. Obviously, all these variables reflect educational and cultural leisure.  Although dining itself is not connected to educational and cultural leisure, but is integral part of it (except for reading), as when people get out of the home and go to museums, art, etc, they need to eat somewhere outside the home. Thus, people who are prone to visit museums, art, theater also are prone to have dinner outside. Moreover, people of average and high socio-economic status can prefer all these activities. 
+
+* **Loving music**. Second latent variable (ML2) is uncovered by 2 variables: concerts and music. This factor is also logical, as people who love listening to music, also love attending concerts of their favorite musical artists. Both variables are connected to music.
+
+* **Sport**. Third latent variable (ML3) is uncovered by 3 variables: sports, tvsports, exercise. All these factors reflect interest in sport - both by doing and watching (tvsports).
+
+* **Popular culture**. Fourth latent variable (ML4) is uncovered by 3 variables: tv, shopping, movies. They reflect popular culture, such cultural consumption is popular among the broad strata of society and is welcomed by the overwhelming majority. Probably, people of low socio-economic status can prefer all these activities. Also, people in rural area may be restricted in opportunities to visit museums, art, theater, etc.
+
+That's the end :)
+
